@@ -1,0 +1,437 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Praktikum Digital: Konversi Suhu (°C, °R, °F, K)</title>
+  <style>
+    :root{
+      --bg:#0f1724; --card:#0b1220; --accent:#ffba08; --muted:#9aa6b2;
+      --glass: rgba(255,255,255,0.04);
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%;margin:0;font-family:Inter,ui-sans-serif,system-ui,Segoe UI,Roboto,'Helvetica Neue',Arial; background:linear-gradient(180deg,#071226 0%, #07182a 60%); color:#e6eef6}
+    .wrap{max-width:980px;margin:28px auto;padding:20px}
+    header{display:flex;gap:16px;align-items:center}
+    header h1{font-size:20px;margin:0}
+    .subtitle{color:var(--muted);font-size:13px}
+
+    .grid{display:grid;grid-template-columns:360px 1fr;gap:18px;margin-top:18px}
+    @media (max-width:880px){.grid{grid-template-columns:1fr;}}
+
+    /* Card */
+    .card{background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));border-radius:14px;padding:16px;box-shadow:0 6px 18px rgba(2,6,23,0.6);}
+
+    /* Thermometer */
+    .thermo-wrap{display:flex;flex-direction:column;align-items:center;gap:12px}
+    .thermo{width:92px;height:300px;position:relative}
+    .thermo svg{width:100%;height:100%;display:block}
+    .mercury{transition:height 600ms cubic-bezier(.2,.9,.2,1), transform 600ms; transform-origin:bottom center}
+    .scale{position:absolute;left:100%;top:12px;transform:translateX(10px);font-size:13px;color:var(--muted)}
+
+    /* Controls */
+    .controls{display:grid;gap:12px}
+    .row{display:flex;gap:8px;align-items:center}
+    label{font-size:13px;color:var(--muted);min-width:80px}
+    input[type=number]{flex:1;padding:8px;border-radius:8px;border:1px solid rgba(255,255,255,0.06);background:transparent;color:inherit;font-size:16px}
+    select{padding:8px;border-radius:8px;border:1px solid rgba(255,255,255,0.06);background:transparent;color:inherit}
+
+    .sliders{display:grid;gap:8px}
+    input[type=range]{width:100%}
+
+    .results{display:flex;flex-direction:column;gap:6px;margin-top:8px}
+    .chip{padding:8px 10px;border-radius:10px;background:var(--glass);font-weight:600}
+
+    .actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+    button{background:var(--accent);border:none;color:#072033;padding:10px 12px;border-radius:10px;font-weight:700;cursor:pointer}
+    .ghost{background:transparent;border:1px solid rgba(255,255,255,0.06);color:var(--muted)}
+
+    /* footer */
+    footer{margin-top:14px;color:var(--muted);font-size:13px}
+
+    /* small helper */
+    .note{font-size:13px;color:var(--muted)}
+
+    /* responsive thermometer small */
+    @media (max-width:420px){.thermo{height:220px;width:72px}}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <div>
+        <h1>Praktikum Digital: Konversi Suhu</h1>
+        <div class="subtitle">Interaktif — Celsius, Reamur, Fahrenheit, Kelvin — Animasi termometer raksa</div>
+      </div>
+    </header>
+
+    <div class="grid">
+      <div class="card thermo-wrap">
+        <!-- Thermometer SVG -->
+        <div class="thermo" aria-hidden="false">
+          <svg viewBox="0 0 120 360" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Termometer">
+            <!-- Bulb -->
+            <defs>
+              <linearGradient id="g1" x1="0" x2="0" y1="0" y2="1">
+                <stop offset="0%" stop-color="#ffd98a" stop-opacity="0.98" />
+                <stop offset="100%" stop-color="#ff8c42" stop-opacity="0.9" />
+              </linearGradient>
+            </defs>
+            <rect x="46" y="20" width="28" height="240" rx="14" fill="#071428" stroke="#0b2a3b" stroke-width="2" />
+            <rect x="54" y="26" width="12" height="228" rx="6" fill="#0c2533" />
+
+            <!-- Mercury column (we will control height by JS via mask) -->
+            <g transform="translate(54,26)">
+              <rect x="0" y="0" width="12" height="228" rx="6" fill="#0c2533" />
+              <rect id="mercury" x="0" y="0" width="12" height="0" rx="6" fill="url(#g1)" />
+            </g>
+
+            <!-- Bulb -->
+            <circle cx="60" cy="280" r="34" fill="#071428" stroke="#0b2a3b" stroke-width="2" />
+            <circle cx="60" cy="280" r="28" fill="url(#g1)" id="bulbFill" />
+
+            <!-- Scale marks (visual only) -->
+            <g id="marks" fill="none" stroke="#6e8292" stroke-width="1">
+            </g>
+          </svg>
+        </div>
+
+        <div class="scale note">Geser slider atau isi nilai untuk melihat perubahan raksa.</div>
+      </div>
+
+      <div class="card controls">
+        <div class="row">
+          <label for="inputVal">Nilai</label>
+          <input id="inputVal" type="number" inputmode="decimal" value="25" step="0.1" />
+          <select id="inputUnit" aria-label="satuan masukan">
+            <option value="C">°C (Celsius)</option>
+            <option value="R">°R (Reamur)</option>
+            <option value="F">°F (Fahrenheit)</option>
+            <option value="K">K (Kelvin)</option>
+          </select>
+        </div>
+
+        <div class="sliders">
+          <div class="row"><label>Simulasi (°C)</label><input id="cSlider" type="range" min="-50" max="150" value="25" step="0.1" /></div>
+          <div class="row"><label>Kecepatan animasi</label><input id="speed" type="range" min="100" max="1200" value="600" step="50" /></div>
+        </div>
+
+        <div class="actions">
+          <button id="convertBtn">Convert Seketika</button>
+          <button id="resetBtn" class="ghost">Reset</button>
+          <button id="downloadBtn" class="ghost">Download HTML</button>
+        </div>
+
+        <div class="results" id="results">
+          <div class="chip" id="resC">Celsius: — °C</div>
+          <div class="chip" id="resR">Reamur: — °R</div>
+          <div class="chip" id="resF">Fahrenheit: — °F</div>
+          <div class="chip" id="resK">Kelvin: — K</div>
+        </div>
+
+        <footer>
+          <div class="note">Catatan eksperimen: skala thermometer disesuaikan pada rentang -50 °C sampai 150 °C.</div>
+        </footer>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Helper conversions (digit-by-digit safe arithmetic handled by JS numbers here)
+    function C_from(value, unit){
+      value = Number(value);
+      switch(unit){
+        case 'C': return value;
+        case 'R': return value * 5/4; // Reamur to C
+        case 'F': return (value - 32) * 5/9;
+        case 'K': return value - 273.15;
+      }
+    }
+    function toAll(c){
+      const C = Number(c);
+      return {
+        C: (C),
+        R: (C * 4/5),
+        F: (C * 9/5) + 32,
+        K: (C + 273.15)
+      }
+    }
+
+    // Elements
+    const inputVal = document.getElementById('inputVal');
+    const inputUnit = document.getElementById('inputUnit');
+    const cSlider = document.getElementById('cSlider');
+    const speed = document.getElementById('speed');
+    const convertBtn = document.getElementById('convertBtn');
+    const resetBtn = document.getElementById('resetBtn');
+    const downloadBtn = document.getElementById('downloadBtn');
+
+    const resC = document.getElementById('resC');
+    const resR = document.getElementById('resR');
+    const resF = document.getElementById('resF');
+    const resK = document.getElementById('resK');
+
+    const mercury = document.getElementById('mercury');
+    const bulbFill = document.getElementById('bulbFill');
+
+    // Thermometer mapping configuration
+    const rangeMin = -50; const rangeMax = 150; // in Celsius
+    const columnHeight = 228; // px height of column area in SVG
+
+    function cToHeight(celsius){
+      // clamp
+      if(celsius < rangeMin) celsius = rangeMin;
+      if(celsius > rangeMax) celsius = rangeMax;
+      const fraction = (celsius - rangeMin) / (rangeMax - rangeMin);
+      return Math.round(fraction * columnHeight);
+    }
+
+    function updateMercury(celsius, duration){
+      const h = cToHeight(celsius);
+      // mercury rect uses y starting at top (0), height from top; we want it anchored bottom
+      const y = columnHeight - h;
+      mercury.style.transition = `height ${duration}ms cubic-bezier(.2,.9,.2,1), transform ${duration}ms`;
+      mercury.setAttribute('y', y);
+      mercury.setAttribute('height', h);
+      // bulb color change to hint hot/cold
+      const t = Math.max(Math.min((celsius - rangeMin)/(rangeMax-rangeMin),1),0);
+      // interpolate warm tone using simple approach
+      const warm = Math.round(255 * t);
+      const r = 255; const g = 200 - Math.round(100 * t); const b = 138 - Math.round(100 * t);
+      bulbFill.setAttribute('fill', `rgb(${r},${Math.max(g,40)},${Math.max(b,30)})`);
+    }
+
+    function displayAllFromInput(){
+      let val = parseFloat(inputVal.value);
+      if(Number.isNaN(val)) val = 0;
+      const unit = inputUnit.value;
+      const c = C_from(val, unit);
+      const all = toAll(c);
+      resC.textContent = `Celsius: ${Number(all.C).toFixed(2)} °C`;
+      resR.textContent = `Reamur: ${Number(all.R).toFixed(2)} °R`;
+      resF.textContent = `Fahrenheit: ${Number(all.F).toFixed(2)} °F`;
+      resK.textContent = `Kelvin: ${Number(all.K).toFixed(2)} K`;
+      // sync slider representing celsius
+      cSlider.value = Number(all.C).toFixed(2);
+      updateMercury(all.C, Number(speed.value));
+    }
+
+    // events
+    inputVal.addEventListener('input', ()=>{
+      // update on typing but not too frequently
+      displayAllFromInput();
+    });
+    inputUnit.addEventListener('change', ()=> displayAllFromInput());
+
+    cSlider.addEventListener('input', ()=>{
+      const c = Number(cSlider.value);
+      // update all displays and also convert to currently chosen unit
+      const all = toAll(c);
+      resC.textContent = `Celsius: ${Number(all.C).toFixed(2)} °C`;
+      resR.textContent = `Reamur: ${Number(all.R).toFixed(2)} °R`;
+      resF.textContent = `Fahrenheit: ${Number(all.F).toFixed(2)} °F`;
+      resK.textContent = `Kelvin: ${Number(all.K).toFixed(2)} K`;
+      // change main input to match the chosen unit
+      const outVal = (function(){
+        switch(inputUnit.value){
+          case 'C': return all.C;
+          case 'R': return all.R;
+          case 'F': return all.F;
+          case 'K': return all.K;
+        }
+      })();
+      inputVal.value = Number(outVal).toFixed(2);
+      updateMercury(c, Number(speed.value));
+    });
+
+    speed.addEventListener('input', ()=>{
+      // update transition speed in next animation
+    });
+
+    convertBtn.addEventListener('click', ()=>{
+      // animate conversion
+      displayAllFromInput();
+      // micro interaction
+      convertBtn.animate([{transform:'scale(1)'},{transform:'scale(0.98)'},{transform:'scale(1)'}],{duration:220});
+    });
+
+    resetBtn.addEventListener('click', ()=>{
+      inputVal.value = 25; inputUnit.value='C'; cSlider.value=25; speed.value=600;
+      displayAllFromInput();
+    });
+
+    // Download the current HTML (self-contained)
+    downloadBtn.addEventListener('click', ()=>{
+      const html = `<!doctype html>\n" + document.documentElement.outerHTML.replace(/<script[\s\S]*<\\/script>/, function(s){ return s; })`;
+      // Simpler approach: grab current full document and let user save
+      const content = '<!doctype html>\n' + document.documentElement.outerHTML;
+      const blob = new Blob([content], {type: 'text/html'});
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a'); a.href = url; a.download = 'praktikum-konversi-suhu.html'; document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(()=>URL.revokeObjectURL(url),1000);
+    });
+
+    // initialize scale marks dynamically
+    (function drawMarks(){
+      const marks = document.getElementById('marks');
+      const total = 10; // draw marks for -50..150 every 20°C
+      for(let i=0;i<=10;i++){
+        const y = 26 + (columnHeight - Math.round(i*(columnHeight/10)));
+        const major = document.createElementNS('http://www.w3.org/2000/svg','line');
+        major.setAttribute('x1',30); major.setAttribute('x2',42); major.setAttribute('y1',y); major.setAttribute('y2',y);
+        marks.appendChild(major);
+        const text = document.createElementNS('http://www.w3.org/2000/svg','text');
+        text.setAttribute('x',14); text.setAttribute('y',y+4); text.setAttribute('font-size',8); text.setAttribute('fill','#97a6b6');
+        const tval = rangeMin + i*( (rangeMax-rangeMin)/10 );
+        text.textContent = `${Math.round(tval)}°C`;
+        marks.appendChild(text);
+      }
+    })();
+
+    // initial render
+    displayAllFromInput();
+
+    // Make inputs touch friendly on mobile (increase clickable area)
+    [...document.querySelectorAll('button,input,select')].forEach(el=>{el.style.touchAction='manipulation'});
+
+    // Accessibility: keyboard conversion on Enter
+    inputVal.addEventListener('keyup', (e)=>{ if(e.key==='Enter') displayAllFromInput(); });
+  </script>
+  <!-- Soal Praktikum & Lembar Jawaban Interaktif Baru -->
+  <div class="wrap">
+    <div class="card" style="margin-top:20px">
+      <h2>📝 Soal Praktikum (Pilihan Ganda)</h2>
+      <p class="note">Jawablah pertanyaan berikut dengan memilih opsi yang benar.</p>
+
+      <ol id="mcq" style="line-height:1.6; padding-left:18px">
+        <li>
+          Konversi dari 50 °C ke Fahrenheit adalah...
+          <br>
+          <label><input type="radio" name="q1" value="a"> 112 °F</label><br>
+          <label><input type="radio" name="q1" value="b"> 122 °F</label><br>
+          <label><input type="radio" name="q1" value="c"> 104 °F</label>
+        </li><br>
+
+        <li>
+          Jika suhu suatu zat adalah 300 K, maka dalam Celsius bernilai...
+          <br>
+          <label><input type="radio" name="q2" value="a"> 26.85 °C</label><br>
+          <label><input type="radio" name="q2" value="b"> 27 °C</label><br>
+          <label><input type="radio" name="q2" value="c"> 30 °C</label>
+        </li><br>
+
+        <li>
+          80 °R (Reamur) setara dengan...
+          <br>
+          <label><input type="radio" name="q3" value="a"> 100 °C</label><br>
+          <label><input type="radio" name="q3" value="b"> 120 °C</label><br>
+          <label><input type="radio" name="q3" value="c"> 90 °C</label>
+        </li><br>
+
+        <li>
+          Termometer menunjukkan 14 °F. Berapa nilai Celsiusnya?
+          <br>
+          <label><input type="radio" name="q4" value="a"> -10 °C</label><br>
+          <label><input type="radio" name="q4" value="b"> -12.2 °C</label><br>
+          <label><input type="radio" name="q4" value="c"> -6 °C</label>
+        </li><br>
+
+        <li>
+          Air laboratorium bersuhu 30 °C. Berapa nilai Kelvin?
+          <br>
+          <label><input type="radio" name="q5" value="a"> 303 K</label><br>
+          <label><input type="radio" name="q5" value="b"> 302.15 K</label><br>
+          <label><input type="radio" name="q5" value="c"> 305 K</label>
+        </li><br>
+      </ol>
+
+      <button id="checkMCQ" style="margin-top:10px">Cek Jawaban</button>
+      <div id="scoreMCQ" class="chip" style="margin-top:10px">Skor: —</div>
+
+      <button id="showKey" style="margin-top:12px; background:#ffb703; color:black">Tampilkan Kunci Jawaban</button>
+      <div id="answerKey" class="note" style="display:none; margin-top:10px"></div>
+    </div>
+  </div>
+
+  <script>
+    const correctMCQ = {
+      q1: 'b',   // 50°C = 122°F
+      q2: 'a',   // 300K = 26.85°C
+      q3: 'a',   // 80R = 100°C
+      q4: 'b',   // 14°F = -12.2°C
+      q5: 'a'    // 30°C = 303K
+    };
+
+    document.getElementById('checkMCQ').addEventListener('click', ()=>{
+      let score = 0;
+      Object.keys(correctMCQ).forEach(q =>{
+        const selected = document.querySelector(`input[name="${q}"]:checked`);
+        if(selected && selected.value === correctMCQ[q]) score++;
+      });
+      document.getElementById('scoreMCQ').textContent = `Skor: ${score} / ${Object.keys(correctMCQ).length}`;
+    });
+
+    document.getElementById('showKey').addEventListener('click', ()=>{
+      const keyBox = document.getElementById('answerKey');
+      keyBox.style.display = 'block';
+      keyBox.innerHTML = `
+        <strong>Kunci Jawaban:</strong><br>
+        1. 122 °F<br>
+        2. 26.85 °C<br>
+        3. 100 °C<br>
+        4. -12.2 °C<br>
+        5. 303 K<br>
+      `;
+    });
+  </script>
+
+<!-- Grafik Interaktif Chart.js -->
+<h2 style="text-align:center; margin-top:40px;">Grafik Interaktif Perbandingan Skala Suhu</h2>
+<p>Masukkan nilai suhu dalam Celsius, lalu grafik akan otomatis memperbarui seluruh konversi Fahrenheit, Reamur, dan Kelvin.</p>
+
+<input id="inputC" type="number" placeholder="Masukkan suhu (°C)" style="padding:10px; width:200px; font-size:16px;">
+<button onclick="updateChart()" style="padding:10px; font-size:16px; margin-left:10px;">Perbarui Grafik</button>
+
+<canvas id="tempChart" style="max-width:600px; margin-top:20px;"></canvas>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+let ctx = document.getElementById('tempChart').getContext('2d');
+
+let celsius = -20;
+let fahrenheit = (celsius * 9/5) + 32;
+let reamur = celsius * 4/5;
+let kelvin = celsius + 273.15;
+
+let chart = new Chart(ctx, {
+    type: 'bar',
+    data: {
+        labels: ['Celsius', 'Fahrenheit', 'Reamur', 'Kelvin'],
+        datasets: [{
+            label: 'Nilai Suhu',
+            data: [celsius, fahrenheit, reamur, kelvin]
+        }]
+    },
+    options: {
+        responsive: true,
+        scales: { y: { beginAtZero: true } }
+    }
+});
+
+function updateChart() {
+    let c = parseFloat(document.getElementById('inputC').value);
+    if (isNaN(c)) return;
+
+    chart.data.datasets[0].data = [
+        c,
+        (c * 9/5) + 32,
+        c * 4/5,
+        c + 273.15
+    ];
+
+    chart.update();
+}
+</script>
+
+</body>
+</html>
